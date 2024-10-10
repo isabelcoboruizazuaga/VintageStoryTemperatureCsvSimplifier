@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Simplifier</title>
+</head>
+<body>
+ <h1>Simplify your temp data csv</h1>
+ 
+ <!--Intro div-->
+ <div> 
+ <p> Use "/debug exptempplot" to obtain a year-round csv data of the temperature on your current location </p>
+ <p> That will download a file called temperatureplot.csv in the folder where the exe is found. In my case: C:\Users\myUser\AppData\Roaming\Vintagestory</p>
+ <p>(In windows you can find it with right click on the direct acces to your game and selecting "Open file location) " </p>
+ </div>
+ <hr/>
+  
+ <div> 
+    <h2>Import here your csv file</h2>
+    <p>Load the file first. Then by pressing "Download simplified" you'll download a simplified csv with the following data: month, day, min temp, max temp<p>
+     <p>You can download the complete formatted data too by pressing "Download Formatted CSV"<p>
+    <input type="file" id="fileInput" />
+    <button id="downloadSimplifiedBtn" style="display:none;">Download Simplified CSV</button>
+    <button id="downloadFormattedBtn" style="display:none;">Download Formatted CSV</button>     
+ </div>
+     
+ <div> 
+    <p>Now you can open the files with excel, google sheets or any similar program to create a graph<p>
+ </div>
+  <hr/>
+ <div> 
+    <h3> Simplified File Preview </h3>
+    
+    <pre id="output"></pre>
+    <script>    
+       let formattedCSV = '';  // Store formatted CSV globally
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const data = e.target.result;
+
+                // Step 1: Split the data into lines
+                let lines = data.trim().split('\n');
+
+                // Step 2: Process each line and group temperatures by day for the simplified CSV
+                let dailyData = {};
+                let formattedData = []; // Array to hold formatted data
+
+                lines.forEach(line => {
+                    // Split the date-time part and temperature part
+                    let [dateTime, temp] = line.split(';');
+
+                    // Replace the comma in temperature with a period and convert to number
+                    let originalTemp = parseFloat(temp.replace(',', '.'));
+
+                    // Round the temperature to the nearest integer for the simplified CSV
+                    let roundedTemp = Math.round(originalTemp);
+
+                    // Extract the date and time
+                    let [date, time] = dateTime.split(' ');
+                    let [day, month, year] = date.split('.');
+
+                    // Save the formatted data for download
+                    formattedData.push(`${month},${day},${time},${originalTemp}`);
+
+                    // Create a unique key for each day (month-day) for the simplified CSV
+                    let key = `${month}-${day}`;
+
+                    // If the key doesn't exist in the dailyData object, create it
+                    if (!dailyData[key]) {
+                        dailyData[key] = { minTemp: roundedTemp, maxTemp: roundedTemp };
+                    } else {
+                        // Update the min and max temperatures for the day
+                        dailyData[key].minTemp = Math.min(dailyData[key].minTemp, roundedTemp);
+                        dailyData[key].maxTemp = Math.max(dailyData[key].maxTemp, roundedTemp);
+                    }
+                });
+
+                // Step 3: Generate the simplified CSV
+                let simplifiedCSV = 'month,day,min temp,max temp\n';
+                for (const key in dailyData) {
+                    const [month, day] = key.split('-');
+                    const { minTemp, maxTemp } = dailyData[key];
+                    simplifiedCSV += `${month},${day},${minTemp},${maxTemp}\n`;
+                }
+
+                // Generate the formatted CSV (with original temperatures and time)
+                formattedCSV = formattedData.join('\n');
+
+                // Output the result in the <pre> tag for preview
+                document.getElementById('output').textContent = simplifiedCSV;
+
+                // Enable the download buttons
+                document.getElementById('downloadSimplifiedBtn').style.display = 'inline-block';
+                document.getElementById('downloadFormattedBtn').style.display = 'inline-block';
+
+                // Create the downloadable CSV files
+                const simplifiedBlob = new Blob([simplifiedCSV], { type: 'text/csv' });
+                const formattedBlob = new Blob([formattedCSV], { type: 'text/csv' });
+                const simplifiedUrl = URL.createObjectURL(simplifiedBlob);
+                const formattedUrl = URL.createObjectURL(formattedBlob);
+
+                // Add download functionality to the simplified CSV button
+                const downloadSimplifiedBtn = document.getElementById('downloadSimplifiedBtn');
+                downloadSimplifiedBtn.onclick = function () {
+                    const a = document.createElement('a');
+                    a.href = simplifiedUrl;
+                    a.download = 'simplified_data.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a); // Clean up
+                };
+
+                // Add download functionality to the formatted CSV button
+                const downloadFormattedBtn = document.getElementById('downloadFormattedBtn');
+                downloadFormattedBtn.onclick = function () {
+                    const a = document.createElement('a');
+                    a.href = formattedUrl;
+                    a.download = 'formatted_data.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a); // Clean up
+                };
+            };
+
+            reader.readAsText(file);
+        });
+    </script>
+ </div>
+</body>
+</html>
